@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoramento Infra | GLPI</title>
+    
+    <!-- Bibliotecas Visuais -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Refresh Automático (2 min) -->
+    <meta http-equiv="refresh" content="120">
+
+    <style>
+        /* --- Variaveis da cores --- */
+        :root {
+            /* Tema Claro (Padrão) */
+            --bg-body: #f3f4f6;
+            --bg-card: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            
+            /* Cores fixas */
+            --n1-color: #3b82f6;
+            --n2-color: #f59e0b;
+            --n3-color: #ef4444;
+        }
+
+        /* Tema Escuro (Ativado pela classe .dark-mode) */
+        body.dark-mode {
+            --bg-body: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            padding: 20px;
+        }
+
+        /* Header e Topo */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 30px; border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+        }
+        .header h1 { font-weight: 900; margin: 0; letter-spacing: -1px; }
+        .brand-highlight { background: linear-gradient(90deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        /* Botão de Tema */
+        .theme-switch {
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            color: var(--text-main); width: 45px; height: 45px;
+            border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.2s;
+        }
+        .theme-switch:hover { transform: scale(1.1); box-shadow: var(--card-shadow); }
+
+        /* Cards de Fila */
+        .card-queue {
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 16px; padding: 20px; text-align: center;
+            box-shadow: var(--card-shadow); height: 100%;
+            transition: transform 0.2s;
+        }
+        .card-queue:hover { transform: translateY(-5px); }
+        
+        .queue-title { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.85rem; margin-bottom: 10px; }
+        .queue-count { font-size: 4rem; font-weight: 900; line-height: 1; margin-bottom: 10px; }
+        
+        .n1 .queue-count { color: var(--n1-color); }
+        .n2 .queue-count { color: var(--n2-color); }
+        .n3 .queue-count { color: var(--n3-color); }
+
+        .badge-timer {
+            background: var(--bg-body); border: 1px solid var(--border-color);
+            color: var(--text-muted); padding: 5px 12px; border-radius: 20px;
+            font-size: 0.8rem; display: inline-flex; align-items: center; gap: 5px;
+        }
+
+        /* Área de Alerta */
+        .alert-box {
+            background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 16px; padding: 20px; margin-bottom: 30px;
+            display: flex; align-items: center; justify-content: space-between;
+            animation: pulse-red 2s infinite;
+        }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.2); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+
+        .btn-ticket {
+            background: var(--bg-card); color: var(--n3-color); border: 1px solid var(--n3-color);
+            padding: 6px 14px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 2px;
+            display: inline-block; transition: 0.2s;
+        }
+        .btn-ticket:hover { background: var(--n3-color); color: white; }
+
+        /* Ranking */
+        .ranking-container {
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 16px; padding: 20px; height: 100%;
+        }
+        .rank-item {
+            display: flex; align-items: center; padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .rank-item:last-child { border-bottom: none; }
+        
+        .rank-pos { font-size: 1.2rem; width: 35px; text-align: center; margin-right: 10px; }
+        .rank-name { flex-grow: 1; font-weight: 600; color: var(--text-main); }
+        .rank-score {
+            background: var(--bg-body); color: var(--n1-color);
+            padding: 4px 12px; border-radius: 8px; font-weight: bold;
+        }
+
+        /* Gráfico */
+        .chart-container {
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 16px; padding: 15px; position: relative; height: 350px; width: 100%;
+        }
+
+        /* Loading */
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-body); z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading -->
+    {% if not dados %}
+    <div class="loading-overlay">
+        <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;"></div>
+        <h4>Carregando GLPI...</h4>
+        <small class="text-muted">{{ msg }}</small>
+    </div>
+    {% endif %}
+
+    <!-- Header -->
+    <div class="header">
+        <div>
+            <h1>GLPI <span class="brand-highlight">VIGIA</span></h1>
+            <small class="text-muted">Painel de Controle</small>
+        </div>
+        
+        <div class="d-flex align-items-center gap-4">
+            <div class="text-end d-none d-md-block">
+                <div id="relogio" style="font-size: 1.5rem; font-weight: 700; line-height: 1;">--:--</div>
+                <small class="text-muted">Atualizado: {{ agora }}</small>
+            </div>
+            
+            <!-- Botão do Dark Mode -->
+            <button class="theme-switch" onclick="toggleTheme()" title="Mudar Tema">
+                <i class="fa-solid fa-moon"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Erros -->
+    {% if erro %}
+    <div class="alert alert-danger mb-4">{{ erro }}</div>
+    {% endif %}
+
+    <div class="container-fluid">
+        
+        <!-- 1. Área dos Atrasados -->
+        {% if dados.atrasados_total > 0 %}
+        <div class="alert-box">
+            <div class="d-flex align-items-center">
+                <div class="text-center me-4">
+                    <div style="font-size: 3rem; font-weight: 900; color: var(--n3-color); line-height: 1;">{{ dados.atrasados_total }}</div>
+                    <small style="color: var(--n3-color); font-weight: bold;">CRÍTICOS</small>
+                </div>
+                <div>
+                    <h5 class="m-0 fw-bold" style="color: var(--text-main)">Chamados Atrasados (>48h)</h5>
+                    <small class="text-muted">Clique nos botões para resolver:</small>
+                </div>
+            </div>
+            <div class="text-end">
+                {% for id in dados.atrasados_ids %}
+                <a href="{{ base }}/glpi/front/ticket.form.php?id={{ id }}" target="_blank" class="btn-ticket">#{{ id }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="row g-4">
+            <!-- Coluna : Filas e gráficos  -->
+            <div class="col-lg-8">
+                <!-- Cards da fila -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-4">
+                        <div class="card-queue n1">
+                            <div class="queue-title"><i class="fa-solid fa-headset me-2"></i> Nível 1 (Jr)</div>
+                            <div class="queue-count">{{ dados.n1.total }}</div>
+                            <div class="badge-timer"><i class="fa-regular fa-clock"></i> {{ dados.n1.tempo }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card-queue n2">
+                            <div class="queue-title"><i class="fa-solid fa-screwdriver-wrench me-2"></i> Nível 2 (Pl)</div>
+                            <div class="queue-count">{{ dados.n2.total }}</div>
+                            <div class="badge-timer"><i class="fa-regular fa-clock"></i> {{ dados.n2.tempo }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card-queue n3">
+                            <div class="queue-title"><i class="fa-solid fa-network-wired me-2"></i> Nível 3 (Sr)</div>
+                            <div class="queue-count">{{ dados.n3.total }}</div>
+                            <div class="badge-timer"><i class="fa-regular fa-clock"></i> {{ dados.n3.tempo }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráfico -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="chart-container">
+                            <canvas id="graficoFilas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coluna : Ranking -->
+            <div class="col-lg-4">
+                <div class="ranking-container">
+                    <h5 class="mb-4 fw-bold text-center" style="color: var(--text-main)">
+                        <i class="fa-solid fa-trophy text-warning me-2"></i> Top Resolutores
+                    </h5>
+                    
+                    {% if dados.ranking %}
+                        <div style="max-height: 500px; overflow-y: auto;">
+                        {% for nome, qtd in dados.ranking %}
+                            <div class="rank-item">
+                                <div class="rank-pos">
+                                    {% if loop.index == 1 %} 🥇
+                                    {% elif loop.index == 2 %} 🥈
+                                    {% elif loop.index == 3 %} 🥉
+                                    {% else %} <small class="text-muted">#{{ loop.index }}</small>
+                                    {% endif %}
+                                </div>
+                                <div class="rank-name">{{ nome }}</div>
+                                <div class="rank-score">{{ qtd }}</div>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-5">
+                            <i class="fa-solid fa-ghost fa-2x mb-2"></i><br>
+                            Sem dados de ranking hoje.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // --- Lógica do dark mode ---
+        const toggleBtn = document.querySelector('.theme-switch');
+        const icon = toggleBtn.querySelector('i');
+
+        // Verifica preferência salva
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark-mode');
+            icon.classList.remove('fa-moon'); icon.classList.add('fa-sun');
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            
+            if (isDark) {
+                icon.classList.remove('fa-moon'); icon.classList.add('fa-sun');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                icon.classList.remove('fa-sun'); icon.classList.add('fa-moon');
+                localStorage.setItem('theme', 'light');
+            }
+            
+            // Atualiza o gráfico se ele existir
+            if (typeof renderChart === 'function') renderChart();
+        }
+
+        // --- Relogio ---
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('relogio').innerText = now.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- Gráfico ---
+        {% if dados %}
+        let myChart = null;
+
+        function renderChart() {
+            const ctx = document.getElementById('graficoFilas');
+            if (!ctx) return;
+
+            // Cores dinâmicas baseadas no tema
+            const isDark = document.body.classList.contains('dark-mode');
+            const textColor = isDark ? '#94a3b8' : '#6b7280';
+            const gridColor = isDark ? '#334155' : '#e5e7eb';
+
+            if (myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Nível 1', 'Nível 2', 'Nível 3'],
+                    datasets: [{
+                        label: 'Chamados na Fila',
+                        data: [{{ dados.n1.total }}, {{ dados.n2.total }}, {{ dados.n3.total }}],
+                        backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444'],
+                        borderRadius: 6,
+                        barThickness: 50
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: gridColor },
+                            ticks: { color: textColor }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: textColor }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Inicia gráfico ao carregar
+        document.addEventListener('DOMContentLoaded', renderChart);
+        {% endif %}
+    </script>
+</body>
+</html>
